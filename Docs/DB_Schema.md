@@ -1,6 +1,6 @@
 # Database Schema Specification: Synod
 
-This document defines the relational data model for **Synod**. While the schema maintains functional parity with **Conclave**, it adheres to Django ORM conventions for naming, relationship management, and metadata handling.
+This document defines the relational data model for **Synod**. The schema follows Django ORM conventions for naming, relationship management, and metadata handling while supporting the room, workflow, and provider orchestration model.
 
 ---
 
@@ -43,7 +43,7 @@ The schema is centered around the `Room` entity, which orchestrates the relation
 
 | Column | Type | Description |
 | :--- | :--- | :--- |
-| `id` | UUID (PK) | Publicly safe unique identifier (standard for Synod/Conclave ports). |
+| `id` | UUID (PK) | Publicly safe unique identifier for room-level operations. |
 | `owner_id` | FK (User) | The developer who initialized the room. |
 | `name` | VarChar(255) | User-defined title for the session. |
 | `objective` | Text | The high-level task goal models refer to. |
@@ -51,14 +51,14 @@ The schema is centered around the `Room` entity, which orchestrates the relation
 | `created_at` | DateTime | `auto_now_add=True` timestamp. |
 
 ### 3. `synod_role_mapping`
-*Defines which AI Model is assigned to which Role within a specific Room.*
+*Defines which AI provider is assigned to which role within a specific room.*
 
 | Column | Type | Description |
 | :--- | :--- | :--- |
 | `id` | BigAuto (PK) | Internal ID. |
 | `room_id` | FK (Room) | The associated meeting room (`related_name='role_mappings'`). |
-| `role_name` | VarChar(100) | Persona name (e.g., "Lead Architect", "Code Critic"). |
-| `provider_id` | VarChar(50) | Registry ID (e.g., `GEMINI_PRO`, `CLAUDE_MOCKED`). |
+| `role_name` | VarChar(100) | Persona name (for example, "Lead Architect" or "Code Critic"). |
+| `provider_id` | VarChar(50) | Registry ID (for example, `gemini_live`, `openai_mocked`, `claude_mocked`). |
 
 ### 4. `synod_conversation_message`
 *The Canonical Schema. Stores all turns (User and AI) in a normalized format.*
@@ -86,7 +86,7 @@ The schema is centered around the `Room` entity, which orchestrates the relation
 | `last_updated` | DateTime | Timestamp for sync validation. |
 
 ### 6. `synod_token_usage_log`
-*Auditing table for cost tracking across live and mocked providers.*
+*Auditing table for usage logging and cost tracking across live and mocked providers.*
 
 | Column | Type | Description |
 | :--- | :--- | :--- |
@@ -98,19 +98,17 @@ The schema is centered around the `Room` entity, which orchestrates the relation
 
 ---
 
-## 3. Comparison: Django ORM vs. Spring/JPA
-
-While the logic is mirrored from Conclave, the implementation diverges in these key areas:
+## 3. Implementation Notes
 
 ### 3.1 Relationship Naming (`related_name`)
-In Conclave (JPA), reverse relationships are often defined by `@OneToMany(mappedBy = "room")`. In Synod, we use Django's `related_name` (e.g., `related_name='messages'`) which provides a cleaner API for the `ChatConsumer` to access history (e.g., `room.messages.all()`).
+Django's `related_name` (for example, `related_name='messages'`) provides a clean API for the `ChatConsumer` to access room history through the ORM.
 
 ### 3.2 Field Types & Postgres Native Features
-- **JSONField:** Synod uses Django’s native `JSONField` for `review_comments`, which maps directly to PostgreSQL’s `JSONB` type. In Spring, this often requires custom Hibernate Type definitions or String-to-JSON serialization logic.
-- **UUIDs:** Django handles `UUIDField` natively with Postgres, ensuring that IDs are stored as 128-bit numbers rather than strings, a performance parity with Conclave's JPA setup.
+- **JSONField:** Synod uses Django’s native `JSONField` for `review_comments`, which maps directly to PostgreSQL’s `JSONB` type.
+- **UUIDs:** Django handles `UUIDField` natively with Postgres, ensuring that IDs are stored as 128-bit values rather than simple sequential integers.
 
 ### 3.3 Implicit vs. Explicit IDs
-In Conclave, primary keys are explicitly annotated with `@Id` and `@GeneratedValue`. Django implicitly creates an `id` field for every model unless a different field is marked as `primary_key=True`. Synod explicitly sets `UUIDField` as the primary key for `Room` and `Message` to prevent the sequential ID leaking inherent in Django's default `BigAuto` increment.
+Django implicitly creates an `id` field for every model unless a different field is marked as `primary_key=True`. Synod explicitly sets `UUIDField` as the primary key for `Room` and `Message` to prevent sequential ID leakage.
 
 ### 3.4 Timestamps
-Synod uses Django's `auto_now_add` and `auto_now` fields, which are handled at the ORM level during `save()`. Conclave typically relies on `@CreatedDate` annotations and auditing listeners, making Synod's temporal tracking slightly more coupled to the application layer.
+Synod uses Django's `auto_now_add` and `auto_now` fields, which are handled at the ORM level during `save()`. This keeps the audit trail simple and consistent for the room lifecycle.

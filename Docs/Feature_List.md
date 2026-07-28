@@ -1,18 +1,30 @@
 # Synod — Feature List
 
-**PROJECT NAME:** Synod (Python/Django variant of Conclave)
+**PROJECT NAME:** Synod
 **Stack:** Python / Django
-**Core Differentiator:** Multi-Provider Context Unification — Django implementation
+**Purpose:** This document is the single source of truth for the capabilities described across the Synod planning documents.
 
-## Same core concept and features as Conclave
+## Core Capabilities
 
-- Unified message schema + per-provider adapters (Claude/GPT/Gemini)
-- Shared conversation history across all models
-- @-mention turn-taking, chat room UI
-- Auth + user accounts
-
-## What's actually different — the point of building it twice
-
-- Django Channels + Redis for the real-time chat room, instead of Spring's more native WebSocket handling — worth naming explicitly since it's a real architectural divergence, not just "same thing, different syntax"
-- DRF serializers/validation patterns vs. Spring's DTO/validation approach for the adapter layer
-- Built specifically to compare how Java vs. Python diverge on the same real-time, multi-integration problem — the value of this project is the comparison itself, not just having "a Python version"
+- **Authentication:** JWT-based sign-in and token refresh using SimpleJWT.
+- **User Accounts:** Registration and account management for room owners and participants.
+- **Room Management:** Creation and lifecycle management of collaborative AI rooms.
+- **Workflow State:** Persistent draft, review-comment, and summary state for each room.
+- **Provider Registry:** Lookup and configuration of available AI providers for each role.
+- **Provider Adapter:** Translation layer that converts canonical messages into provider-specific payloads.
+- **Canonical Message Schema:** A normalized message structure shared across all providers.
+- **Conversation History:** Persistent message history for all turns and interventions.
+- **Role Mapping:** Assignment of providers to specific personas such as Lead Architect or Reviewer.
+- **Token Streaming:** Progressive delivery of provider output chunks for live UI rendering.
+- **Pause Pipeline:** Ability to halt a running workflow sequence.
+- **Resume Pipeline:** Ability to continue a paused workflow sequence.
+- **Manual Intervention:** User-supplied correction or direction inserted into the workflow.
+- **Presence:** Awareness of connected users in the room.
+- **Typing Indicators:** Visual feedback when a model or user is actively composing.
+- **Workflow Summary:** A compact summary of the current draft and outstanding review items.
+- **Token Usage Logging:** Recording of prompt and completion token usage for live and mocked providers.
+- **WebSocket Broadcast:** Real-time propagation of room events and model updates.
+- **Shared Context:** Unified room context visible to all participants.
+- **Live Provider:** Gemini (Live) for real provider execution.
+- **Mock Providers:** OpenAI (Mocked) and Claude (Mocked) for adapter and workflow demonstration.
+- **Developer Comparison:** The project also serves as a comparison point for Django/Channels implementation choices.

@@ -1,6 +1,6 @@
 # Synod API Specification
 
-This document defines the API contracts for **Synod**. As a port of Conclave, Synod maintains functional parity in its REST endpoints but introduces a significantly different WebSocket contract due to the shift from Spring STOMP to **Django Channels**.
+This document defines the API contracts for **Synod**. The REST layer provides room and workflow management, while the WebSocket layer carries real-time turn updates, streaming events, and orchestration state changes.
 
 ---
 
@@ -8,9 +8,9 @@ This document defines the API contracts for **Synod**. As a port of Conclave, Sy
 
 ### 1. Global Conventions
 - **Base URL:** `http://localhost:8000/api`
-- **Auth Scheme:** JWT (JSON Web Token) via `Authorization: Bearer <token>`
+- **Auth Scheme:** JWT using SimpleJWT via `Authorization: Bearer <token>`
 - **Format:** All requests and responses are `application/json`.
-- **Divergence Note:** Unlike Conclave's Spring Boot DTOs, Synod uses **DRF Serializers**, which handle both validation and the nested relationship between Rooms and Role Mappings in a single pass.
+- **Data Model:** Synod uses **DRF Serializers** to validate request bodies and shape nested room and role-mapping data.
 
 ### 2. Authentication (`/auth/`)
 | Path | Method | Description | Request Body | Status |
@@ -23,7 +23,7 @@ This document defines the API contracts for **Synod**. As a port of Conclave, Sy
 | Path | Method | Description | Response |
 | :--- | :--- | :--- | :--- |
 | `/` | `GET` | List user's active meeting rooms | `List<RoomSummarySerializer>` |
-| `/` | `POST` | Create room + assign roles/models | `RoomDetailSerializer` |
+| `/` | `POST` | Create room + assign roles/providers | `RoomDetailSerializer` |
 | `/{id}/` | `GET` | Get full room state + WorkflowState | `RoomDetailSerializer` |
 | `/{id}/messages/` | `GET` | Fetch canonical history (paginated) | `List<MessageSerializer>` |
 
@@ -40,8 +40,8 @@ This document defines the API contracts for **Synod**. As a port of Conclave, Sy
     "last_updated": "ISO-8601"
   },
   "role_mappings": [
-    {"role": "Lead Architect", "model": "GEMINI_PRO"},
-    {"role": "Reviewer", "model": "CLAUDE_MOCKED"}
+    {"role": "Lead Architect", "model": "Gemini (Live)"},
+    {"role": "Reviewer", "model": "Claude (Mocked)"}
   ]
 }
 ```
@@ -50,7 +50,7 @@ This document defines the API contracts for **Synod**. As a port of Conclave, Sy
 
 ## Part B: Real-time WebSocket Contract (Django Channels)
 
-This is Synod's most architecturally distinct surface. While Conclave uses the STOMP sub-protocol (with built-in `SUBSCRIBE` and `SEND` frames), Synod uses **Raw WebSockets** with a custom JSON dispatch pattern.
+Synod uses **Raw WebSockets** with a custom JSON dispatch pattern over the **Daphne** ASGI server.
 
 ### 1. Consumer Context
 - **Consumer Class:** `ChatConsumer(AsyncJsonConsumer)`
@@ -63,7 +63,9 @@ The client sends a JSON object with an `action` key.
 | Action | Payload | Trigger |
 | :--- | :--- | :--- |
 | `send_message` | `{"text": "...", "is_mention": true}` | User sends a chat or @-mentions a model. |
-| `pause_pipeline` | `{}` | User halts an automated sequence. |
+| `pause_pipeline` | `{}` | User pauses an automated sequence. |
+| `resume_pipeline` | `{}` | User resumes a paused sequence. |
+| `system_intervention` | `{"text": "..."}` | User injects manual context or a correction. |
 
 ### 3. Server-to-Client Broadcasts (The `group_send` Model)
 When the backend processes a turn, it broadcasts a dictionary to the group. The consumer’s handler method (e.g., `room_message`) then pushes it to the WebSocket.
@@ -71,32 +73,34 @@ When the backend processes a turn, it broadcasts a dictionary to the group. The 
 **Message Schema:**
 ```json
 {
-  "type": "turn_update | status_change | chunk",
+  "type": "turn_update | status_change | stream_start | stream_chunk | stream_end",
   "data": {
     "message_id": "UUID",
-    "sender": "Lead Architect (Gemini)",
+    "sender": "Lead Architect (Gemini (Live))",
     "content": "string",
-    "workflow_update": { ... },
-    "is_complete": true
+    "workflow_update": { "current_draft": "string", "review_comments": ["string"] },
+    "is_complete": true,
+    "chunk_index": 3,
+    "is_final": false
   }
 }
 ```
 
-### 4. Comparison: Channels vs. STOMP
-- **Protocol Overhead:** Synod’s contract is "lighter" but requires the developer to manually define event types (`type`). Conclave leverages STOMP's native headers to route messages to specific `@MessageMapping` controllers.
-- **State Presence:** In Synod, `connect()` explicitly adds the user to the Redis Group. In Conclave, the broker handles subscriptions transparently.
-- **Broadcast Trigger:** Synod requires an explicit `self.channel_layer.group_send` call from the consumer or a signal, whereas Conclave uses `@SendTo` or `SimpMessagingTemplate`.
+### 4. Event Semantics
+- `stream_start`: Signals the beginning of a streamed response for a specific role.
+- `stream_chunk`: Carries incremental content for the UI to render progressively.
+- `stream_end`: Marks the completion of the streamed response and finalizes the turn.
 
 ---
 
 ## Part C: Internal Adapter Contract
 
-While not exposed to the frontend, the **Provider Adapter** (DRF-based) uses a consistent internal interface to transform data for the AI engines.
+While not exposed to the frontend, the **Provider Adapter** uses a consistent internal interface to transform data for the AI engines.
 
 | Model | Adapter Strategy | Context Divergence |
 | :--- | :--- | :--- |
-| **Gemini** | `GeminiAdapterSerializer` | Maps history to `user/model` turns for the real Python SDK call. |
-| **OpenAI** | `OpenAIAdapterSerializer` | Maps history to `user/assistant/system` for the Mocked provider. |
-| **Claude** | `ClaudeAdapterSerializer` | Extracts `SYSTEM` roles into the top-level parameter for the Mocked provider. |
+| **Gemini (Live)** | `GeminiAdapterSerializer` | Maps history to `user/model` turns for the real Python SDK call. |
+| **OpenAI (Mocked)** | `OpenAIAdapterSerializer` | Maps history to `user/assistant/system` for the mocked provider. |
+| **Claude (Mocked)** | `ClaudeAdapterSerializer` | Extracts `SYSTEM` roles into the top-level parameter for the mocked provider. |
 
 **Success Criterion:** Any `CanonicalMessage` stored in the Django ORM must pass through these serializers to produce a provider-compliant JSON payload without manual string manipulation.
