@@ -1,3 +1,4 @@
+import queue
 import threading
 import time
 
@@ -6,6 +7,7 @@ from django.core.exceptions import ImproperlyConfigured
 
 from engine.cache_entry import CacheEntry
 from engine.evict.strategy import EvictionStrategy
+from engine.mock_database import MockDatabase
 
 
 class EvictionFailedException(Exception):
@@ -48,6 +50,12 @@ class CacheEngine:
             self.eviction_strategy = LfuEvictionPolicy()
         else:
             raise ValueError(f"Unknown eviction policy: {policy}")
+
+        # Initialize mock database and write-back queue/thread
+        self.db = MockDatabase()
+        self.write_back_queue: queue.Queue = queue.Queue()
+        self.write_back_thread = threading.Thread(target=self._write_back_worker, daemon=True)
+        self.write_back_thread.start()
 
     def exists(self, key: str) -> bool:
         """
@@ -93,49 +101,81 @@ class CacheEngine:
 
     def set(self, key: str, value: str, ttl: float | None = None) -> bool:
         """
-        Writes key and value to cache under the lock, enforcing capacity constraints and
-        performing LRU/LFU promotions.
-        Returns True if a new key was inserted, False if an existing key was updated.
+        Inserts or updates a key in the cache.
         """
         with self.lock:
-            expiry_time = time.time() + ttl if ttl is not None else float('inf')
+            return self._set_under_lock(key, value, ttl)
+
+    def _set_under_lock(self, key: str, value: str, ttl: float | None = None) -> bool:
+        expiry_time = time.time() + ttl if ttl is not None else float('inf')
+        
+        # Passive expiration check on write
+        if key in self.cache_dict and self._check_expiry_under_lock(key):
+            # The key was expired and deleted; it is now a new insertion
+            pass
             
-            # Passive expiration check on write
-            if key in self.cache_dict and self._check_expiry_under_lock(key):
-                # The key was expired and deleted; it is now a new insertion
-                pass
-                
-            is_new = key not in self.cache_dict
+        is_new = key not in self.cache_dict
+        
+        if is_new:
+            # Enforce capacity constraints
+            if len(self.cache_dict) >= self.max_size:
+                victim = self.eviction_strategy.evict_victim()
+                if victim is None or victim not in self.cache_dict:
+                    raise EvictionFailedException("Cache capacity reached and eviction was unable to free memory.")
+                del self.cache_dict[victim]
+                self.policy_evictions += 1
             
-            if is_new:
-                # Enforce capacity constraints
-                if len(self.cache_dict) >= self.max_size:
-                    victim = self.eviction_strategy.evict_victim()
-                    if victim is None or victim not in self.cache_dict:
-                        raise EvictionFailedException("Cache capacity reached and eviction was unable to free memory.")
-                    del self.cache_dict[victim]
-                    self.policy_evictions += 1
-                
-                # Insert entry
-                entry = CacheEntry(
-                    value=value,
-                    created_time=time.time(),
-                    expiry_time=expiry_time,
-                    last_access_time=time.time(),
-                    access_frequency=1
-                )
-                self.cache_dict[key] = entry
-                self.eviction_strategy.on_insert(key)
-            else:
-                # Update existing entry
-                entry = self.cache_dict[key]
-                entry.value = value
-                entry.expiry_time = expiry_time
-                entry.last_access_time = time.time()
-                entry.access_frequency += 1
-                self.eviction_strategy.on_access(key)
-                
+            # Insert entry
+            entry = CacheEntry(
+                value=value,
+                created_time=time.time(),
+                expiry_time=expiry_time,
+                last_access_time=time.time(),
+                access_frequency=1
+            )
+            self.cache_dict[key] = entry
+            self.eviction_strategy.on_insert(key)
+        else:
+            # Update existing entry
+            entry = self.cache_dict[key]
+            entry.value = value
+            entry.expiry_time = expiry_time
+            entry.last_access_time = time.time()
+            entry.access_frequency += 1
+            self.eviction_strategy.on_access(key)
+            
+        return is_new
+
+    def write_through(self, key: str, value: str, ttl: float | None = None) -> bool:
+        """
+        Writes to the local cache and then synchronously blocks until the mock database write completes.
+        """
+        with self.lock:
+            is_new = self._set_under_lock(key, value, ttl)
+            self.db.set(key, value)
             return is_new
+
+    def write_back(self, key: str, value: str, ttl: float | None = None) -> bool:
+        """
+        Writes to the local cache, appends a write event to the queue, and returns immediately.
+        """
+        with self.lock:
+            is_new = self._set_under_lock(key, value, ttl)
+            self.write_back_queue.put((key, value))
+            return is_new
+
+    def _write_back_worker(self) -> None:
+        """
+        Asynchronously drains the write-back queue and updates the mock database.
+        """
+        while True:
+            try:
+                key, value = self.write_back_queue.get()
+                self.db.set(key, value)
+                self.write_back_queue.task_done()
+            except Exception:
+                # Silently catch database write failures (e.g. key == "simulate_db_failure") to keep thread alive
+                pass
 
     def ttl(self, key: str) -> float | None:
         """
