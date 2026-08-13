@@ -6,10 +6,19 @@ from cache_app.singleton import cache_engine
 
 
 @pytest.fixture(autouse=True)
-def clear_cache():
+def clear_cache(settings):
     """
-    Clears cache dict and resets stats before each test.
+    Clears cache dict, resets stats, and ensures single-node config before each test.
     """
+    settings.SHARD_NODE_ID = "Node-A"
+    settings.SHARD_CLUSTER_NODES = {
+        "Node-A": "http://127.0.0.1:8000"
+    }
+    import cache_app
+    from cache_app.apps import CacheAppConfig
+    config = CacheAppConfig('cache_app', cache_app)
+    config.ready()
+
     with cache_engine.lock:
         cache_engine.cache_dict.clear()
         cache_engine.hits = 0

@@ -40,3 +40,14 @@ REST_FRAMEWORK = {
     'UNAUTHENTICATED_TOKEN': None,
     'EXCEPTION_HANDLER': 'cache_app.exceptions.custom_exception_handler',
 }
+
+# Static Cluster Sharding Configurations
+import os
+
+SHARD_NODE_ID = os.getenv('SHARD_NODE_ID', 'Node-A')
+SHARD_VIRTUAL_NODES = 150
+SHARD_CLUSTER_NODES = {
+    "Node-A": "http://127.0.0.1:8000",
+    "Node-B": "http://127.0.0.1:8001",
+    "Node-C": "http://127.0.0.1:8002",
+}

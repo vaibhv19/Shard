@@ -10,7 +10,9 @@ requires-python = ">=3.12"
 dependencies = [
     "django>=5.0,<6.0",
     "djangorestframework>=3.15.0,<3.16.0",
-    "prometheus-client>=0.20.0,<0.21.0"
+    "prometheus-client>=0.20.0,<0.21.0",
+    "mmh3>=4.0.0",
+    "httpx>=0.25.0"
 ]
 
 [dependency-groups]
@@ -19,7 +21,8 @@ dev = [
     "pytest-django>=4.8.0",
     "pytest-cov>=4.1.0",
     "ruff>=0.3.0",
-    "mypy>=1.9.0"
+    "mypy>=1.9.0",
+    "respx>=0.20.0"
 ]
 
 [tool.poetry]
