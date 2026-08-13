@@ -10,9 +10,7 @@ def test_cache_entry_defaults():
     entry = CacheEntry(value="test_value")
     assert entry.value == "test_value"
     assert entry.expiry_time == float('inf')
-    assert entry.access_frequency == 1
     assert abs(entry.created_time - time.time()) < 1.0
-    assert abs(entry.last_access_time - time.time()) < 1.0
 
 def test_cache_engine_basic_ops():
     engine = CacheEngine(max_size=10, eviction_policy="lru")
@@ -45,17 +43,14 @@ def test_cache_engine_basic_ops():
 def test_exists_no_side_effects():
     engine = CacheEngine(max_size=10, eviction_policy="lru")
     engine.set("key1", "val1")
+    engine.set("key2", "val2")
     
-    entry = engine.cache_dict["key1"]
-    initial_access_time = entry.last_access_time
-    initial_freq = entry.access_frequency
+    # LRU order: key1 is least recently used (at tail), key2 is most recently used (at head)
+    assert engine.eviction_strategy.tail.prev.key == "key1"
     
-    time.sleep(0.01)
+    # exists() check should not promote key1 to head
     assert engine.exists("key1") is True
-    
-    # Verify no mutation to metadata
-    assert entry.last_access_time == initial_access_time
-    assert entry.access_frequency == initial_freq
+    assert engine.eviction_strategy.tail.prev.key == "key1"
 
 def test_cache_engine_lru_eviction():
     # Cache size 3, LRU policy

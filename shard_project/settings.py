@@ -1,5 +1,7 @@
 # mypy: ignore-errors
-SECRET_KEY = 'django-insecure-shard-cache-secret-key'
+import os
+
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-shard-cache-secret-key')
 DEBUG = True
 ALLOWED_HOSTS = ['*']
 

@@ -1,6 +1,7 @@
 import queue
 import threading
 import time
+from dataclasses import dataclass
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -9,6 +10,18 @@ from engine.cache_entry import CacheEntry
 from engine.evict.strategy import EvictionStrategy
 from engine.metrics.collector import metrics_collector
 from engine.mock_database import MockDatabase
+
+
+@dataclass(frozen=True, slots=True)
+class CacheSetResult:
+    is_new: bool
+    expiry_time: float
+
+
+@dataclass(frozen=True, slots=True)
+class CacheGetResult:
+    value: str | None
+    ttl_remaining: float | None
 
 
 class EvictionFailedException(Exception):
@@ -84,14 +97,46 @@ class CacheEngine:
                     return None
                     
                 entry = self.cache_dict[key]
-                entry.last_access_time = time.time()
-                entry.access_frequency += 1
                 
                 # Promote key in the active eviction policy
                 self.eviction_strategy.on_access(key)
                 self.hits += 1
                 metrics_collector.record_hit(self.policy_name)
                 return entry.value
+            finally:
+                metrics_collector.set_keys_count(len(self.cache_dict))
+                duration_ms = (time.perf_counter() - start_time) * 1000.0
+                metrics_collector.record_latency("GET", duration_ms)
+
+    def get_with_ttl(self, key: str) -> CacheGetResult:
+        """
+        Retrieves key value and computes remaining TTL under a single atomic lock operation.
+        """
+        start_time = time.perf_counter()
+        with self.lock:
+            try:
+                if key not in self.cache_dict:
+                    self.misses += 1
+                    metrics_collector.record_miss()
+                    return CacheGetResult(value=None, ttl_remaining=None)
+                if self._check_expiry_under_lock(key):
+                    self.misses += 1
+                    metrics_collector.record_miss()
+                    return CacheGetResult(value=None, ttl_remaining=None)
+                    
+                entry = self.cache_dict[key]
+                
+                # Promote key in the active eviction policy
+                self.eviction_strategy.on_access(key)
+                self.hits += 1
+                metrics_collector.record_hit(self.policy_name)
+                
+                if entry.expiry_time == float('inf'):
+                    ttl_rem = -1.0
+                else:
+                    ttl_rem = max(0.0, entry.expiry_time - time.time())
+                    
+                return CacheGetResult(value=entry.value, ttl_remaining=ttl_rem)
             finally:
                 metrics_collector.set_keys_count(len(self.cache_dict))
                 duration_ms = (time.perf_counter() - start_time) * 1000.0
@@ -128,6 +173,22 @@ class CacheEngine:
                 duration_ms = (time.perf_counter() - start_time) * 1000.0
                 metrics_collector.record_latency("SET", duration_ms)
 
+    def set_with_metadata(self, key: str, value: str, ttl: float | None = None) -> CacheSetResult:
+        """
+        Inserts or updates a key in the cache and returns atomic metadata under a single lock operation.
+        """
+        start_time = time.perf_counter()
+        with self.lock:
+            try:
+                is_new = self._set_under_lock(key, value, ttl)
+                entry = self.cache_dict.get(key)
+                expiry_time = entry.expiry_time if entry is not None else float('inf')
+                return CacheSetResult(is_new=is_new, expiry_time=expiry_time)
+            finally:
+                metrics_collector.set_keys_count(len(self.cache_dict))
+                duration_ms = (time.perf_counter() - start_time) * 1000.0
+                metrics_collector.record_latency("SET", duration_ms)
+
     def _set_under_lock(self, key: str, value: str, ttl: float | None = None) -> bool:
         expiry_time = time.time() + ttl if ttl is not None else float('inf')
         
@@ -152,9 +213,7 @@ class CacheEngine:
             entry = CacheEntry(
                 value=value,
                 created_time=time.time(),
-                expiry_time=expiry_time,
-                last_access_time=time.time(),
-                access_frequency=1
+                expiry_time=expiry_time
             )
             self.cache_dict[key] = entry
             self.eviction_strategy.on_insert(key)
@@ -163,8 +222,6 @@ class CacheEngine:
             entry = self.cache_dict[key]
             entry.value = value
             entry.expiry_time = expiry_time
-            entry.last_access_time = time.time()
-            entry.access_frequency += 1
             self.eviction_strategy.on_access(key)
             
         return is_new

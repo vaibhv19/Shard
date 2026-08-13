@@ -20,3 +20,7 @@ htmlcov/
 .gemini/
 *~
 *.swp
+
+# Environment Variables
+.env
+

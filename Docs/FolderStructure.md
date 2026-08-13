@@ -64,16 +64,24 @@ shard/
 tests/                                   # Isolation Test Suites
 ├── __init__.py
 ├── unit/                                # Standard functional unit tests
-│   ├── test_cache_engine.py
-│   ├── test_lru_eviction.py
-│   ├── test_lfu_eviction.py
 │   ├── test_active_expiry.py
+│   ├── test_api.py
+│   ├── test_bootstrap.py
+│   ├── test_cache_engine.py
+│   ├── test_cluster_api.py
 │   ├── test_consistent_hash.py
-│   └── test_api.py
+│   ├── test_invalidation.py
+│   ├── test_lfu_eviction.py
+│   ├── test_lru_eviction.py
+│   ├── test_metrics.py
+│   ├── test_metrics_api.py
+│   ├── test_rebalancing.py
+│   ├── test_routing_proxy.py
+│   └── test_write_semantics.py
 └── concurrency/                         # High-contention GIL & Lock stress tests
     ├── test_concurrent_engine.py
     ├── test_concurrent_expiry.py
-    └── test_lock_contention.py
+    └── test_concurrent_api.py
 ```
 
 ---

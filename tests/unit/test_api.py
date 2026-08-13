@@ -155,3 +155,38 @@ def test_api_eviction_failed(settings):
     # Restore max_size
     with cache_engine.lock:
         cache_engine.max_size = 1000
+
+
+def test_api_path_key_validation_errors():
+    client = APIClient()
+    long_key = "a" * 251
+
+    # 1. GET key
+    response = client.get(f"/api/v1/cache/{long_key}")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.data["errorCode"] == "VALIDATION_FAILED"
+    assert "key" in response.data["message"]
+
+    # 2. DELETE key
+    response = client.delete(f"/api/v1/cache/{long_key}")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.data["errorCode"] == "VALIDATION_FAILED"
+    assert "key" in response.data["message"]
+
+    # 3. EXISTS check
+    response = client.get(f"/api/v1/cache/{long_key}/exists")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.data["errorCode"] == "VALIDATION_FAILED"
+    assert "key" in response.data["message"]
+
+    # 4. EXPIRE check
+    response = client.post(f"/api/v1/cache/{long_key}/expire", {"ttl": 50}, format="json")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.data["errorCode"] == "VALIDATION_FAILED"
+    assert "key" in response.data["message"]
+
+    # 5. TTL check
+    response = client.get(f"/api/v1/cache/{long_key}/ttl")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.data["errorCode"] == "VALIDATION_FAILED"
+    assert "key" in response.data["message"]

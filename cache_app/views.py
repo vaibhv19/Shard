@@ -5,6 +5,7 @@ from django.conf import settings
 from django.http import HttpResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -17,6 +18,16 @@ from cache_app.serializers import (
 from cache_app.singleton import cache_engine, router
 
 BOOT_TIME = time.time()
+
+
+def validate_key(key: str) -> None:
+    """
+    Enforces that keys must not be blank and are capped at 250 characters.
+    """
+    if not key:
+        raise ValidationError({"key": "Key must not be blank."})
+    if len(key) > 250:
+        raise ValidationError({"key": "Key must not exceed 250 characters."})
 
 class CacheView(APIView):
     """
@@ -36,17 +47,16 @@ class CacheView(APIView):
             res = router.forward(key, "POST", "", request.data)
             return Response(res.json(), status=res.status_code)
             
-        # Local execution
-        is_inserted = cache_engine.set(key, value, ttl)
+        # Local execution using atomic engine method
+        result = cache_engine.set_with_metadata(key, value, ttl)
+        is_inserted = result.is_new
+        expiry_time = result.expiry_time
         
-        # Retrieve the exact expiry timestamp to return in response
-        with cache_engine.lock:
-            entry = cache_engine.cache_dict.get(key)
-            if entry is not None and entry.expiry_time != float('inf'):
-                expiry_dt = datetime.datetime.fromtimestamp(entry.expiry_time, tz=datetime.UTC)
-                expiry_str = expiry_dt.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
-            else:
-                expiry_str = None
+        if expiry_time != float('inf'):
+            expiry_dt = datetime.datetime.fromtimestamp(expiry_time, tz=datetime.UTC)
+            expiry_str = expiry_dt.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+        else:
+            expiry_str = None
                 
         if is_inserted:
             return Response({
@@ -70,25 +80,23 @@ class CacheDetailView(APIView):
     Proxies request if key hashes to a remote node.
     """
     def get(self, request, key):
+        validate_key(key)
         if router.should_proxy(key):
             res = router.forward(key, "GET", f"/{key}")
             return Response(res.json(), status=res.status_code)
             
-        val = cache_engine.get(key)
-        if val is None:
-            raise KeyNotFoundException("Requested key does not exist or has expired.")
-            
-        ttl_rem = cache_engine.ttl(key)
-        if ttl_rem is None:
+        result = cache_engine.get_with_ttl(key)
+        if result.value is None:
             raise KeyNotFoundException("Requested key does not exist or has expired.")
             
         return Response({
             "key": key,
-            "value": val,
-            "ttl_remaining": int(ttl_rem) if ttl_rem != -1.0 else -1
+            "value": result.value,
+            "ttl_remaining": int(result.ttl_remaining) if result.ttl_remaining != -1.0 else -1
         }, status=status.HTTP_200_OK)
 
     def delete(self, request, key):
+        validate_key(key)
         if router.should_proxy(key):
             res = router.forward(key, "DELETE", f"/{key}")
             data = res.json() if res.status_code != 204 else None
@@ -106,6 +114,7 @@ class CacheExistsView(APIView):
     Proxies request if key hashes to a remote node.
     """
     def get(self, request, key):
+        validate_key(key)
         if router.should_proxy(key):
             res = router.forward(key, "GET", f"/{key}/exists")
             return Response(res.json(), status=res.status_code)
@@ -123,6 +132,7 @@ class CacheExpireView(APIView):
     Proxies request if key hashes to a remote node.
     """
     def post(self, request, key):
+        validate_key(key)
         serializer = ExpireSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         ttl = serializer.validated_data['ttl']
@@ -147,6 +157,7 @@ class CacheTtlView(APIView):
     Proxies request if key hashes to a remote node.
     """
     def get(self, request, key):
+        validate_key(key)
         if router.should_proxy(key):
             res = router.forward(key, "GET", f"/{key}/ttl")
             return Response(res.json(), status=res.status_code)

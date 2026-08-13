@@ -41,8 +41,10 @@ class InvalidateSerializer(serializers.Serializer):
     pattern = serializers.CharField(
         required=True,
         allow_blank=False,
+        max_length=250,
         error_messages={
             'blank': 'Pattern must not be blank.',
-            'required': 'Pattern is required.'
+            'required': 'Pattern is required.',
+            'max_length': 'Pattern must not exceed 250 characters.'
         }
     )

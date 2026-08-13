@@ -39,8 +39,6 @@ The `CacheEntry` class defines the structural "schema" of every cached record in
 | - value: str (Payload)                                |
 | - created_time: float (Epoch seconds)                 |
 | - expiry_time: float (Epoch seconds)                  |
-| - last_access_time: float (Epoch seconds - LRU)       |
-| - access_frequency: int (Counter - LFU)               |
 +-------------------------------------------------------+
 ```
 
@@ -49,8 +47,8 @@ The `CacheEntry` class defines the structural "schema" of every cached record in
 | **`value`** | `str` | Non-Null | The actual cached value payload. Serialized JSON format is recommended for complex structures. |
 | **`created_time`** | `float` | Non-Null | Epoch timestamp in seconds (from `time.time()`) indicating when the key was written to the cache. |
 | **`expiry_time`** | `float` | Non-Null | Epoch timestamp in seconds when the key is considered stale. If no TTL is set, this is configured to `float('inf')`. |
-| **`last_access_time`**| `float` | Non-Null | Epoch timestamp in seconds when the key was last read via a `GET` command. Primary metadata driver for the **LRU Eviction Strategy**. |
-| **`access_frequency`**| `int` | Non-Null | A counter incremented on every key read. Primary metadata driver for the **LFU Eviction Strategy**. |
+
+*(Note: Prior versions included `last_access_time` and `access_frequency` fields on `CacheEntry`. These were removed as redundant, since LRU/LFU eviction strategies manage their own metadata indexing and mapping structures independently.)*
 
 ---
 
