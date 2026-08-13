@@ -8,6 +8,7 @@ from django.core.exceptions import ImproperlyConfigured
 from engine.cache_entry import CacheEntry
 from engine.evict.strategy import EvictionStrategy
 from engine.mock_database import MockDatabase
+from engine.metrics.collector import metrics_collector
 
 
 class EvictionFailedException(Exception):
@@ -70,41 +71,62 @@ class CacheEngine:
         """
         Retrieves cache value under the lock and triggers eviction policy promotion.
         """
+        start_time = time.perf_counter()
         with self.lock:
-            if key not in self.cache_dict:
-                self.misses += 1
-                return None
-            if self._check_expiry_under_lock(key):
-                self.misses += 1
-                return None
+            try:
+                if key not in self.cache_dict:
+                    self.misses += 1
+                    metrics_collector.record_miss()
+                    return None
+                if self._check_expiry_under_lock(key):
+                    self.misses += 1
+                    metrics_collector.record_miss()
+                    return None
+                    
+                entry = self.cache_dict[key]
+                entry.last_access_time = time.time()
+                entry.access_frequency += 1
                 
-            entry = self.cache_dict[key]
-            entry.last_access_time = time.time()
-            entry.access_frequency += 1
-            
-            # Promote key in the active eviction policy
-            self.eviction_strategy.on_access(key)
-            self.hits += 1
-            return entry.value
+                # Promote key in the active eviction policy
+                self.eviction_strategy.on_access(key)
+                self.hits += 1
+                metrics_collector.record_hit(self.policy_name)
+                return entry.value
+            finally:
+                metrics_collector.set_keys_count(len(self.cache_dict))
+                duration_ms = (time.perf_counter() - start_time) * 1000.0
+                metrics_collector.record_latency("GET", duration_ms)
 
     def delete(self, key: str) -> bool:
         """
         Deletes key under the lock and notifies eviction policy.
         """
+        start_time = time.perf_counter()
         with self.lock:
-            if key in self.cache_dict:
-                # Remove from cache and notify eviction policy
-                del self.cache_dict[key]
-                self.eviction_strategy.on_remove(key)
-                return True
-            return False
+            try:
+                if key in self.cache_dict:
+                    # Remove from cache and notify eviction policy
+                    del self.cache_dict[key]
+                    self.eviction_strategy.on_remove(key)
+                    return True
+                return False
+            finally:
+                metrics_collector.set_keys_count(len(self.cache_dict))
+                duration_ms = (time.perf_counter() - start_time) * 1000.0
+                metrics_collector.record_latency("DELETE", duration_ms)
 
     def set(self, key: str, value: str, ttl: float | None = None) -> bool:
         """
         Inserts or updates a key in the cache.
         """
+        start_time = time.perf_counter()
         with self.lock:
-            return self._set_under_lock(key, value, ttl)
+            try:
+                return self._set_under_lock(key, value, ttl)
+            finally:
+                metrics_collector.set_keys_count(len(self.cache_dict))
+                duration_ms = (time.perf_counter() - start_time) * 1000.0
+                metrics_collector.record_latency("SET", duration_ms)
 
     def _set_under_lock(self, key: str, value: str, ttl: float | None = None) -> bool:
         expiry_time = time.time() + ttl if ttl is not None else float('inf')
@@ -124,6 +146,7 @@ class CacheEngine:
                     raise EvictionFailedException("Cache capacity reached and eviction was unable to free memory.")
                 del self.cache_dict[victim]
                 self.policy_evictions += 1
+                metrics_collector.record_eviction("policy")
             
             # Insert entry
             entry = CacheEntry(
@@ -150,19 +173,31 @@ class CacheEngine:
         """
         Writes to the local cache and then synchronously blocks until the mock database write completes.
         """
+        start_time = time.perf_counter()
         with self.lock:
-            is_new = self._set_under_lock(key, value, ttl)
-            self.db.set(key, value)
-            return is_new
+            try:
+                is_new = self._set_under_lock(key, value, ttl)
+                self.db.set(key, value)
+                return is_new
+            finally:
+                metrics_collector.set_keys_count(len(self.cache_dict))
+                duration_ms = (time.perf_counter() - start_time) * 1000.0
+                metrics_collector.record_latency("SET", duration_ms)
 
     def write_back(self, key: str, value: str, ttl: float | None = None) -> bool:
         """
         Writes to the local cache, appends a write event to the queue, and returns immediately.
         """
+        start_time = time.perf_counter()
         with self.lock:
-            is_new = self._set_under_lock(key, value, ttl)
-            self.write_back_queue.put((key, value))
-            return is_new
+            try:
+                is_new = self._set_under_lock(key, value, ttl)
+                self.write_back_queue.put((key, value))
+                return is_new
+            finally:
+                metrics_collector.set_keys_count(len(self.cache_dict))
+                duration_ms = (time.perf_counter() - start_time) * 1000.0
+                metrics_collector.record_latency("SET", duration_ms)
 
     def _write_back_worker(self) -> None:
         """
@@ -211,21 +246,27 @@ class CacheEngine:
         Runs under the engine's global lock.
         """
         import fnmatch
+        start_time = time.perf_counter()
         with self.lock:
-            keys_to_remove = []
-            
-            # Prune expired keys first and find matches
-            for key in list(self.cache_dict.keys()):
-                self._check_expiry_under_lock(key)
-                if key in self.cache_dict and fnmatch.fnmatchcase(key, pattern):
-                    keys_to_remove.append(key)
-                    
-            # Remove keys
-            for key in keys_to_remove:
-                del self.cache_dict[key]
-                self.eviction_strategy.on_remove(key)
+            try:
+                keys_to_remove = []
                 
-            return len(keys_to_remove)
+                # Prune expired keys first and find matches
+                for key in list(self.cache_dict.keys()):
+                    self._check_expiry_under_lock(key)
+                    if key in self.cache_dict and fnmatch.fnmatchcase(key, pattern):
+                        keys_to_remove.append(key)
+                        
+                # Remove keys
+                for key in keys_to_remove:
+                    del self.cache_dict[key]
+                    self.eviction_strategy.on_remove(key)
+                    
+                return len(keys_to_remove)
+            finally:
+                metrics_collector.set_keys_count(len(self.cache_dict))
+                duration_ms = (time.perf_counter() - start_time) * 1000.0
+                metrics_collector.record_latency("INVALIDATE", duration_ms)
 
     def _check_expiry_under_lock(self, key: str) -> bool:
         """
@@ -238,5 +279,6 @@ class CacheEngine:
             del self.cache_dict[key]
             self.eviction_strategy.on_remove(key)
             self.ttl_evictions += 1
+            metrics_collector.record_eviction("ttl")
             return True
         return False
