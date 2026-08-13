@@ -164,6 +164,29 @@ class CacheEngine:
             entry.expiry_time = time.time() + ttl
             return True
 
+    def invalidate_by_pattern(self, pattern: str) -> int:
+        """
+        Invalidates keys matching a wildcard pattern (e.g., 'user:*').
+        Supports '*' for full cache flush.
+        Runs under the engine's global lock.
+        """
+        import fnmatch
+        with self.lock:
+            keys_to_remove = []
+            
+            # Prune expired keys first and find matches
+            for key in list(self.cache_dict.keys()):
+                self._check_expiry_under_lock(key)
+                if key in self.cache_dict and fnmatch.fnmatchcase(key, pattern):
+                    keys_to_remove.append(key)
+                    
+            # Remove keys
+            for key in keys_to_remove:
+                del self.cache_dict[key]
+                self.eviction_strategy.on_remove(key)
+                
+            return len(keys_to_remove)
+
     def _check_expiry_under_lock(self, key: str) -> bool:
         """
         Checks if a key is expired. If expired, removes it from cache and eviction policy.

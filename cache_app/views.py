@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from cache_app.exceptions import KeyNotFoundException
-from cache_app.serializers import CacheEntrySerializer, ExpireSerializer
+from cache_app.serializers import CacheEntrySerializer, ExpireSerializer, InvalidateSerializer
 from cache_app.singleton import cache_engine, router
 
 BOOT_TIME = time.time()
@@ -193,4 +193,47 @@ class CacheClusterRingView(APIView):
             "hashFunction": "Murmur3_32",
             "virtualNodesPerPhysicalNode": v_nodes,
             "nodes": node_list
+        }, status=status.HTTP_200_OK)
+
+
+class CacheInvalidateView(APIView):
+    """
+    Handles POST /api/v1/cache/invalidate.
+    Invalidates keys matching a wildcard pattern (e.g. 'user:*').
+    Broadcasts the invalidation to all nodes in the cluster.
+    """
+    def post(self, request):
+        serializer = InvalidateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        pattern = serializer.validated_data['pattern']
+        
+        # Check if this is an internal broadcast request
+        is_broadcast = request.headers.get('X-Shard-Broadcast', 'false').lower() == 'true'
+        
+        # Invalidate locally
+        local_count = cache_engine.invalidate_by_pattern(pattern)
+        total_invalidated = local_count
+        
+        # If not a broadcast, propagate to all other nodes in the cluster
+        if not is_broadcast:
+            for node_id, base_url in router.cluster_nodes.items():
+                if node_id == router.self_node_id:
+                    continue
+                try:
+                    url = f"{base_url}/api/v1/cache/invalidate"
+                    res = router.client.post(
+                        url,
+                        json={"pattern": pattern},
+                        headers={"X-Shard-Broadcast": "true", "Content-Type": "application/json"},
+                        timeout=2.0
+                    )
+                    if res.status_code == 200:
+                        total_invalidated += res.json().get("invalidatedKeysCount", 0)
+                except Exception as e:
+                    # Log or print and recover gracefully if node is unreachable
+                    print(f"Failed to broadcast invalidation to node {node_id}: {e}")
+                    
+        return Response({
+            "status": "success",
+            "invalidatedKeysCount": total_invalidated
         }, status=status.HTTP_200_OK)

@@ -36,3 +36,13 @@ class ExpireSerializer(serializers.Serializer):
             'min_value': 'TTL must be a positive integer (minimum 1 second).'
         }
     )
+
+class InvalidateSerializer(serializers.Serializer):
+    pattern = serializers.CharField(
+        required=True,
+        allow_blank=False,
+        error_messages={
+            'blank': 'Pattern must not be blank.',
+            'required': 'Pattern is required.'
+        }
+    )
