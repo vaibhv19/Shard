@@ -1,5 +1,7 @@
 import sys
+
 from django.apps import AppConfig
+
 
 class CacheAppConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
@@ -7,6 +9,7 @@ class CacheAppConfig(AppConfig):
 
     def ready(self):
         from django.conf import settings
+
         from cache_app.singleton import hash_ring, router
         
         # Start active sweeper thread if not in test suite

@@ -1,8 +1,9 @@
-import respx
 import httpx
-import pytest
+import respx
+
 from engine.sharding.consistent_hash import ConsistentHashRing
 from engine.sharding.router import NodeRouter
+
 
 @respx.mock
 def test_router_should_proxy():

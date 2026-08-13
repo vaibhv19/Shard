@@ -1,5 +1,7 @@
 import httpx
+
 from engine.sharding.consistent_hash import ConsistentHashRing
+
 
 class NodeRouter:
     """

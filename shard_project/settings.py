@@ -43,6 +43,7 @@ REST_FRAMEWORK = {
 
 # Static Cluster Sharding Configurations
 import os
+
 SHARD_NODE_ID = os.getenv('SHARD_NODE_ID', 'Node-A')
 SHARD_VIRTUAL_NODES = 150
 SHARD_CLUSTER_NODES = {

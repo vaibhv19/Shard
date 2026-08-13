@@ -1,5 +1,7 @@
 import bisect
+
 import mmh3
+
 
 class ConsistentHashRing:
     """
@@ -8,8 +10,8 @@ class ConsistentHashRing:
     """
     def __init__(self, default_virtual_nodes: int = 150):
         self.default_virtual_nodes = default_virtual_nodes
-        self.ring = []  # Sorted list of virtual node hash values (int)
-        self.hash_to_node = {}  # dict[int, str] mapping hash -> node_id
+        self.ring: list[int] = []  # Sorted list of virtual node hash values (int)
+        self.hash_to_node: dict[int, str] = {}  # dict[int, str] mapping hash -> node_id
 
     def add_node(self, node_id: str, virtual_node_count: int | None = None) -> None:
         """

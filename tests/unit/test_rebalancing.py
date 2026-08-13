@@ -1,5 +1,5 @@
-import pytest
 from engine.sharding.consistent_hash import ConsistentHashRing
+
 
 def test_consistent_hash_rebalancing_minimalism():
     """

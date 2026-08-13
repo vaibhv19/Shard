@@ -1,8 +1,7 @@
-import pytest
-from django.conf import settings
-from cache_app.singleton import hash_ring, router
-from cache_app.apps import CacheAppConfig
 import cache_app
+from cache_app.apps import CacheAppConfig
+from cache_app.singleton import hash_ring, router
+
 
 def test_bootstrap_populates_ring(settings):
     # Setup mock configuration in settings

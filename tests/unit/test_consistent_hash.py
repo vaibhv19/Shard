@@ -1,5 +1,5 @@
-import pytest
 from engine.sharding.consistent_hash import ConsistentHashRing
+
 
 def test_hashing_ring_determinism():
     ring = ConsistentHashRing()
@@ -51,8 +51,7 @@ def test_hashing_ring_uniformity():
     max_deviation = 0.0
     for node, count in counts.items():
         deviation = abs(count - expected_mean) / expected_mean
-        if deviation > max_deviation:
-            max_deviation = deviation
+        max_deviation = max(max_deviation, deviation)
         print(f"{node}: count={count}, deviation={deviation:.4f}")
         
     assert max_deviation < 0.15, f"Hashing uniformity exceeded 15%! Max deviation was {max_deviation:.4f}"

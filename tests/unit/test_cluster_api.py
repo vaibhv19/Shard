@@ -1,9 +1,10 @@
 import pytest
-from rest_framework.test import APIClient
 from rest_framework import status
-from django.conf import settings
-from cache_app.apps import CacheAppConfig
+from rest_framework.test import APIClient
+
 import cache_app
+from cache_app.apps import CacheAppConfig
+
 
 @pytest.fixture(autouse=True)
 def setup_cluster_settings(settings):

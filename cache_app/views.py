@@ -1,12 +1,14 @@
 import datetime
 import time
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
+
 from django.conf import settings
-from cache_app.singleton import cache_engine, router
-from cache_app.serializers import CacheEntrySerializer, ExpireSerializer
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from cache_app.exceptions import KeyNotFoundException
+from cache_app.serializers import CacheEntrySerializer, ExpireSerializer
+from cache_app.singleton import cache_engine, router
 
 BOOT_TIME = time.time()
 
@@ -35,7 +37,7 @@ class CacheView(APIView):
         with cache_engine.lock:
             entry = cache_engine.cache_dict.get(key)
             if entry is not None and entry.expiry_time != float('inf'):
-                expiry_dt = datetime.datetime.fromtimestamp(entry.expiry_time, tz=datetime.timezone.utc)
+                expiry_dt = datetime.datetime.fromtimestamp(entry.expiry_time, tz=datetime.UTC)
                 expiry_str = expiry_dt.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
             else:
                 expiry_str = None
