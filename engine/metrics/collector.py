@@ -1,3 +1,5 @@
+import collections
+import threading
 import time
 from django.conf import settings
 from prometheus_client import Counter, Gauge, Histogram
@@ -52,6 +54,9 @@ class MetricsCollector:
     """
     def __init__(self, node_id: str):
         self.node_id = node_id
+        # Capped sliding window queue for client-side latency percentile calculations
+        self.latency_history = collections.deque(maxlen=1000)
+        self.latency_lock = threading.Lock()
 
     def record_hit(self, policy: str) -> None:
         shard_hits_total.labels(node=self.node_id, eviction_policy=policy).inc()
@@ -64,9 +69,36 @@ class MetricsCollector:
 
     def record_latency(self, operation: str, duration_ms: float) -> None:
         shard_latency.labels(node=self.node_id, operation=operation).observe(duration_ms)
+        # Store in rolling history for local JSON percentile calculations
+        with self.latency_lock:
+            self.latency_history.append(duration_ms)
 
     def set_keys_count(self, count: int) -> None:
         shard_keys_total.labels(node=self.node_id).set(count)
+
+    def get_latency_percentiles(self) -> dict[str, float]:
+        """
+        Calculates and returns MAX, P50, P95, and P99 quantiles in milliseconds.
+        """
+        # Note: Summary quantiles calculated over a sliding window are not identical
+        # to Cairn's decaying reservoir, which is documented here as a design difference.
+        with self.latency_lock:
+            history = sorted(list(self.latency_history))
+            
+        if not history:
+            return {"MAX": 0.0, "P50": 0.0, "P95": 0.0, "P99": 0.0}
+            
+        n = len(history)
+        def percentile(p: float) -> float:
+            idx = int(p * (n - 1))
+            return float(history[idx])
+            
+        return {
+            "MAX": float(max(history)),
+            "P50": percentile(0.50),
+            "P95": percentile(0.95),
+            "P99": percentile(0.99)
+        }
 
 
 # Global metrics collector instance

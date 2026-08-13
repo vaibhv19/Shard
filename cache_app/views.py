@@ -6,6 +6,8 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from django.http import HttpResponse
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from cache_app.exceptions import KeyNotFoundException
 from cache_app.serializers import CacheEntrySerializer, ExpireSerializer, InvalidateSerializer
 from cache_app.singleton import cache_engine, router
@@ -236,4 +238,32 @@ class CacheInvalidateView(APIView):
         return Response({
             "status": "success",
             "invalidatedKeysCount": total_invalidated
+        }, status=status.HTTP_200_OK)
+
+
+class PrometheusMetricsView(APIView):
+    """
+    Exposes standard plaintext metrics for Prometheus scraping.
+    """
+    def get(self, request):
+        data = generate_latest()
+        return HttpResponse(data, content_type=CONTENT_TYPE_LATEST)
+
+
+class CacheLatencyMetricsView(APIView):
+    """
+    Exposes latency percentiles of cache operations as JSON.
+    """
+    def get(self, request):
+        from engine.metrics.collector import metrics_collector
+        percentiles = metrics_collector.get_latency_percentiles()
+        return Response({
+            "name": "shard.cache.latency",
+            "measurements": [
+                { "statistic": "MAX", "value": percentiles["MAX"] },
+                { "statistic": "P50", "value": percentiles["P50"] },
+                { "statistic": "P95", "value": percentiles["P95"] },
+                { "statistic": "P99", "value": percentiles["P99"] }
+            ],
+            "baseUnit": "milliseconds"
         }, status=status.HTTP_200_OK)
