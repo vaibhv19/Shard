@@ -96,7 +96,7 @@ During Phase 3, metrics dashboards aggregate hit/miss ratios and memory statisti
   
   ```sql
   CREATE TABLE cache_metrics_snapshot (
-      id INTEGER PRIMARY KEY AUTOUTINCREMENT,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
       snapshot_timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       node_identifier VARCHAR(100) NOT NULL,
       policy_type VARCHAR(10) NOT NULL, -- 'LRU' or 'LFU'

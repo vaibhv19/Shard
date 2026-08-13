@@ -218,7 +218,7 @@ The comparative success of the two twin projects relies on demonstrating and doc
    * *Option B: Async Event-Loop-per-Node (Django ASGI + `asyncio` / `uvicorn` / `daphne` or custom event loops)*
      * **Pros:** High concurrent request handling on a single thread; avoids thread context switching overhead; matches modern async Python patterns.
      * **Cons:** Increases complexity due to async database/cache engine interactions; departs from Cairn's literal thread model, changing the comparison to "Single-Threaded Async Event Loop vs. True Multi-Threaded Parallelism".
-   * *Decision:* This remains an open design question to be resolved in the Technical Stack and System Architecture phases. Tradeoffs must be quantified and documented.
+   * *Decision (Resolved):* Option A — Thread-Based Locking. See `TechStack.md` §1 for the full trade-off analysis; chosen to preserve architectural symmetry with Cairn for a valid GIL-vs-JVM benchmark comparison.
 
 2. **How should we represent capacity in eviction?**
    * *Option A (Recommended):* Key-Count Limit (e.g., maximum of 5,000 entries). This is deterministic and easy to verify.

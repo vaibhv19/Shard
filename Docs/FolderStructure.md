@@ -113,6 +113,7 @@ To verify concurrency safety without slowing down standard local development, th
 ## 4. `/docs` Folder Inventory
 
 The `/Docs` folder contains the complete documentation suite for the Shard project:
+* **`Shard — Feature List.md`**: Source feature list — MVP/Phase 2/Phase 3 scope broken out by capability, the basis for every other doc in this set.
 * **`PRD.md`**: Core requirements, twin project comparisons (GIL vs. JVM), scope boundaries, and open questions.
 * **`TechStack.md`**: Architectural justifications for Python, Django + DRF, Poetry, pytest, and thread-based locking.
 * **`SystemArchitecture.md`**: High-level component layouts, synchronization boundaries, sharding ring setup, and a comparison table with Cairn.
