@@ -7,8 +7,8 @@ from django.core.exceptions import ImproperlyConfigured
 
 from engine.cache_entry import CacheEntry
 from engine.evict.strategy import EvictionStrategy
-from engine.mock_database import MockDatabase
 from engine.metrics.collector import metrics_collector
+from engine.mock_database import MockDatabase
 
 
 class EvictionFailedException(Exception):
@@ -208,7 +208,7 @@ class CacheEngine:
                 key, value = self.write_back_queue.get()
                 self.db.set(key, value)
                 self.write_back_queue.task_done()
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 # Silently catch database write failures (e.g. key == "simulate_db_failure") to keep thread alive
                 pass
 

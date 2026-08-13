@@ -4,9 +4,9 @@ from cache_app.views import (
     CacheDetailView,
     CacheExistsView,
     CacheExpireView,
+    CacheInvalidateView,
     CacheTtlView,
     CacheView,
-    CacheInvalidateView,
 )
 
 urlpatterns = [

@@ -2,14 +2,18 @@ import datetime
 import time
 
 from django.conf import settings
+from django.http import HttpResponse
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from django.http import HttpResponse
-from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from cache_app.exceptions import KeyNotFoundException
-from cache_app.serializers import CacheEntrySerializer, ExpireSerializer, InvalidateSerializer
+from cache_app.serializers import (
+    CacheEntrySerializer,
+    ExpireSerializer,
+    InvalidateSerializer,
+)
 from cache_app.singleton import cache_engine, router
 
 BOOT_TIME = time.time()
@@ -231,7 +235,7 @@ class CacheInvalidateView(APIView):
                     )
                     if res.status_code == 200:
                         total_invalidated += res.json().get("invalidatedKeysCount", 0)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     # Log or print and recover gracefully if node is unreachable
                     print(f"Failed to broadcast invalidation to node {node_id}: {e}")
                     

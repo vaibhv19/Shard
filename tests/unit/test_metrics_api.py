@@ -1,7 +1,9 @@
 import pytest
-from rest_framework.test import APIClient
 from rest_framework import status
+from rest_framework.test import APIClient
+
 from cache_app.singleton import cache_engine
+
 
 @pytest.fixture(autouse=True)
 def clear_cache():

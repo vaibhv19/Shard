@@ -1,5 +1,6 @@
 import threading
 
+
 class MockDatabase:
     """
     A thread-safe simulated database wrapper for testing Write-Through and Write-Back semantics.

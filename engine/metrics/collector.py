@@ -1,13 +1,13 @@
 import collections
 import threading
-import time
+
 from django.conf import settings
 from prometheus_client import Counter, Gauge, Histogram
 
 # Retrieve local node ID dynamically from Django settings
 try:
     NODE_ID = getattr(settings, 'SHARD_NODE_ID', 'Node-A')
-except Exception:
+except Exception:  # noqa: BLE001
     NODE_ID = 'Node-A'
 
 # Declare Prometheus metrics globally
@@ -55,7 +55,7 @@ class MetricsCollector:
     def __init__(self, node_id: str):
         self.node_id = node_id
         # Capped sliding window queue for client-side latency percentile calculations
-        self.latency_history = collections.deque(maxlen=1000)
+        self.latency_history: collections.deque[float] = collections.deque(maxlen=1000)
         self.latency_lock = threading.Lock()
 
     def record_hit(self, policy: str) -> None:
@@ -83,7 +83,7 @@ class MetricsCollector:
         # Note: Summary quantiles calculated over a sliding window are not identical
         # to Cairn's decaying reservoir, which is documented here as a design difference.
         with self.latency_lock:
-            history = sorted(list(self.latency_history))
+            history = sorted(self.latency_history)
             
         if not history:
             return {"MAX": 0.0, "P50": 0.0, "P95": 0.0, "P99": 0.0}

@@ -1,13 +1,15 @@
 import pytest
+
 from engine.cache_engine import CacheEngine
 from engine.metrics.collector import (
-    shard_hits_total,
-    shard_misses_total,
+    NODE_ID,
     shard_evictions_total,
+    shard_hits_total,
     shard_keys_total,
     shard_latency,
-    NODE_ID
+    shard_misses_total,
 )
+
 
 @pytest.fixture(autouse=True)
 def reset_prometheus_metrics():
@@ -20,12 +22,12 @@ def test_metrics_collection_hits_misses():
     # Track starting counters
     try:
         start_hits = shard_hits_total.labels(node=NODE_ID, eviction_policy=engine.policy_name)._value.get()
-    except Exception:
+    except KeyError:
         start_hits = 0.0
         
     try:
         start_misses = shard_misses_total.labels(node=NODE_ID)._value.get()
-    except Exception:
+    except KeyError:
         start_misses = 0.0
 
     # Trigger Miss
@@ -48,7 +50,7 @@ def test_metrics_collection_evictions():
     
     try:
         start_evictions = shard_evictions_total.labels(node=NODE_ID, reason="policy")._value.get()
-    except Exception:
+    except KeyError:
         start_evictions = 0.0
         
     engine.set("k1", "v1")
