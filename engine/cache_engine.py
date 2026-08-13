@@ -1,7 +1,6 @@
 import threading
 import time
 
-from typing import Optional
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
