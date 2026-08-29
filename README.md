@@ -90,7 +90,6 @@ graph TD
     style KeyHash fill:#0f172a,stroke:#ec4899,stroke-width:2px,color:#fff,stroke-dasharray: 5 5
     style PhysicalA fill:#064e3b,stroke:#10b981,stroke-width:2px,color:#fff
 ```
-*(Source code diagram saved under [consistent_hashing_ring.mermaid](file:///d:/Coding/Projects----For%20Resume/Shard/Docs/assets/consistent_hashing_ring.mermaid))*
 
 ---
 
@@ -277,22 +276,18 @@ Shard/
 ├── pyproject.toml          # Poetry and pytest configuration
 └── grafana-dashboard.json  # Grafana dashboard layout config
 ```
-*For the complete folder documentation, see [FolderStructure.md](file:///d:/Coding/Projects----For%20Resume/Shard/Docs/FolderStructure.md).*
 
 ---
 
 ## Documentation
 
 - [PRD.md](file:///d:/Coding/Projects----For%20Resume/Shard/Docs/PRD.md)
-- [Shard — Feature List.md](file:///d:/Coding/Projects----For%20Resume/Shard/Docs/Shard%20%E2%80%94%20Feature%20List.md)
 - [TechStack.md](file:///d:/Coding/Projects----For%20Resume/Shard/Docs/TechStack.md)
 - [SystemArchitecture.md](file:///d:/Coding/Projects----For%20Resume/Shard/Docs/SystemArchitecture.md)
 - [AppFlow.md](file:///d:/Coding/Projects----For%20Resume/Shard/Docs/AppFlow.md)
-- [UIDesign.md](file:///d:/Coding/Projects----For%20Resume/Shard/Docs/UIDesign.md)
-- [FolderStructure.md](file:///d:/Coding/Projects----For%20Resume/Shard/Docs/FolderStructure.md)
-- [DBSchema.md](file:///d:/Coding/Projects----For%20Resume/Shard/Docs/DBSchema.md)
 - [APIContracts.md](file:///d:/Coding/Projects----For%20Resume/Shard/Docs/APIContracts.md)
 - [Roadmap.md](file:///d:/Coding/Projects----For%20Resume/Shard/Docs/Roadmap.md)
+- [LEARNING_HANDBOOK.md](file:///d:/Coding/Projects----For%20Resume/Shard/Docs/LEARNING_HANDBOOK.md)
 
 ---
 

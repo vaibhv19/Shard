@@ -82,7 +82,7 @@ This project is a high-caliber technical demonstration piece. Its target audienc
 
 ## 4. Functional Requirements
 
-The implementation is structured in three progressive phases to ensure a clean, testable evolution of the codebase, matching [Shard — Feature List.md](file:///d:/Coding/Projects----For%20Resume/Shard/Docs/Shard%20%E2%80%94%20Feature%20List.md).
+The implementation is structured in three progressive phases to ensure a clean, testable evolution of the codebase, matching [Roadmap.md](file:///d:/Coding/Projects----For%20Resume/Shard/Docs/Roadmap.md).
 
 ```
 +--------------------------------------------------------+
@@ -225,16 +225,12 @@ The comparative success of the two twin projects relies on demonstrating and doc
    * *Option B:* Memory-Limit (e.g., maximum of 128MB usage). Measuring Python object sizes accurately (using `sys.getsizeof` or custom recursively sized traversals) is notoriously complex, slow, and does not capture memory allocator fragmentation.
    * *Decision:* Proceed with **Option A** for MVP, and evaluate **Option B** as a Phase 3 extension.
 
----
-
 ## 9. Companion Documents Reference
-
-Once the PRD is approved, the following companion documents will be generated to match the structure of the [Cairn Documentation Suite](file:///d:/Coding/Projects----For%20Resume/Cairn/Docs/):
+ 
+The following companion documents provide architectural and operational details:
 1. **TechStack.md** — Framework and library versions, WSGI/ASGI configurations, test runner setup.
 2. **SystemArchitecture.md** — Process model, cache engine design, lock structures, and distribution ring layout.
 3. **AppFlow.md** — Sequential flow diagrams of cache accesses, evictions, expirations, and proxy routing.
-4. **UIDesign.md** & **DASHBOARD_DESIGN.md** — Wireframes and JSON structures for the dashboard interface.
-5. **FolderStructure.md** — Complete codebase folder layout including modules for the caching engine, API, and tests.
-6. **DBSchema.md** — Schema definition for the mock database layer (simulating write-through/write-back).
-7. **APIContracts.md** — Detailed request/response JSON schemas for all endpoints.
-8. **Roadmap.md** — Gantt chart or list of milestones for Shard implementation.
+4. **APIContracts.md** — Detailed request/response JSON schemas for all endpoints.
+5. **Roadmap.md** — Task progression and milestone tracking for Shard implementation.
+6. **LEARNING_HANDBOOK.md** — In-depth analysis of engineering decisions, concurrency tradeoffs, and runtime comparisons.

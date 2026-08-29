@@ -8,11 +8,13 @@ venv/
 ENV/
 env/
 
-# Pytest / Coverage
+# Pytest / Coverage / Linters
 .pytest_cache/
 .coverage
 htmlcov/
 .cov-report/
+.mypy_cache/
+.ruff_cache/
 
 # IDEs
 .idea/
