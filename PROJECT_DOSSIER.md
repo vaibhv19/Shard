@@ -352,7 +352,7 @@ Shard was developed as the architectural twin to **Cairn** (a Java 21/Spring Boo
 ### LinkedIn Featured Description
 *Direct link to technical blog post:*
 **Same System, Different Languages: Building a Distributed Cache in Python and Java** — An architectural comparison exploring concurrency models, lock granularity under the Python GIL vs. the JVM, $O(1)$ eviction strategies, and consistent hashing.
-[Read the Article](https://vaibhav19.vercel.app/writing/what-i-learned-from-building-the-same-distributed-cache-in-java-and-python)
+[Read the Article](https://vaibhv19.dev/writing/what-i-learned-from-building-the-same-distributed-cache-in-java-and-python)
 
 ### Resume Bullets
 - Built an in-memory concurrent cache engine in Python/Django from scratch, implementing $O(1)$ LRU (sentinel doubly-linked list) and LFU (frequency buckets with secondary recency ordering) eviction policies under a global thread-synchronization lock.

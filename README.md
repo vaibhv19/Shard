@@ -8,7 +8,7 @@ Shard is engineered as the direct functional twin to [Cairn](https://github.com/
 
 ## Related Writing
 
-* [Same System, Different Languages](https://vaibhav19.vercel.app/writing/what-i-learned-from-building-the-same-distributed-cache-in-java-and-python)
+* [Same System, Different Languages](https://vaibhv19.dev/writing/what-i-learned-from-building-the-same-distributed-cache-in-java-and-python)
 
 ---
 
